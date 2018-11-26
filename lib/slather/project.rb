@@ -27,16 +27,25 @@ module Xcodeproj
 
       # Patch xcschemes too
       if format == :clang
-        schemes_path = Xcodeproj::XCScheme.shared_data_dir(self.path)
-        Xcodeproj::Project.schemes(self.path).each do |scheme_name|
-          xcscheme_path = "#{schemes_path + scheme_name}.xcscheme"
-          xcscheme = Xcodeproj::XCScheme.new(xcscheme_path)
-          xcscheme.test_action.xml_element.attributes['codeCoverageEnabled'] = 'YES'
-          xcscheme.save_as(self.path, scheme_name)
-        end
+        patch = lambda { |schemes_path|
+          schemes_path.children.each { |child|
+            extname = ".xcscheme"
+            if child.extname == extname
+              xcscheme_path = child.realpath
+              scheme_name = child.basename(extname).to_path
+              xcscheme = Xcodeproj::XCScheme.new(xcscheme_path)
+              xcscheme.test_action.xml_element.attributes['codeCoverageEnabled'] = 'YES'
+              xcscheme.save_as(self.path, scheme_name)
+            end
+          }
+        }
+        [Xcodeproj::XCScheme.shared_data_dir(self.path), Xcodeproj::XCScheme.user_data_dir self.path].each { |x|
+          if x.exist?
+            patch.call x
+          end
+        }
       end
     end
-
   end
 end
 
